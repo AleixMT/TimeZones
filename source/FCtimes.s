@@ -103,7 +103,7 @@ create_UTC_time:
 		orr r0, r0, r2  @; segons
 		orr r0, r0, r3  @; centessimes
 		
-		@; No té sentit fer allo amb la zona horario ja que es un 0 i ja 
+		@; No té sentit fer allodel C amb la zona horario ja que es un 0 i ja 
 		@; se suposa que hi ha un 0 implicitament al rebre els registres
 		
 		@; ==^^^^^^^^== FINAL codi assemblador de la rutina ==^^^^^^^^==
@@ -118,7 +118,7 @@ create_UTC_time:
 @;	  Crea un fus horari en format 1:4:2 amb els valors donats
 @;	  (els paràmetres massa grans, queden amb valor vàlid màxim)
 @;  Paràmetres:
-@;      R0: fusPositiu (1: positiu, 0: negatiu)
+@;      R0: fusPositiu (1: positiu, 0: negatiu)  ATENCIO AIXO ES CONTRADICTORI AMB EL PPT, MANTENIM COHERENCIA AMB CODI C:
 @;      R1: hores (rang vàlid: 0..12/14)
 @;      R2: quartsHora (rang vàlid: 0-3)
 @;	Resultat:
@@ -128,7 +128,38 @@ create_timezone:
 		push {r1-r12, lr}	@; guardar a pila possibles registres modificats 
 		
 		@; ==vvvvvvvv== INICI codi assemblador de la rutina ==vvvvvvvv==
-
+		
+		@; Ajustem valors del fus (1 o 0)
+		cmp r0, #0
+		movhi r0, #1  @; Si ens passen fus més de 0 fixem a 1 (ens mengem una ins extra per a quan fus = 1)
+		
+		@; Aprofitem cmp anterior per començar aprocessar hores en relacio al fus horari
+		beq .LFusNegatiu
+		@; FusPositiu
+		cmp r1, #14
+		movhi r1, #14  @; Si fus positiu && hores > 14, hores = 14
+		movhi r2, #0  @; Si fus positiu && hores > 14, quarts = 0
+		b .LFinalAjustarFus  @; Sortim d'aqui sino ens mengem el else
+		.LFusNegatiu:
+		cmp r1, #12
+		movhi r1, #12  @; Si fus negatiu && hores > 12, hores = 12
+		movhi r2, #0  @; Si fus negatiu && hores > 12, quarts = 0
+		
+		.LFinalAjustarFus:
+		@; Ajustem quarts d'hora
+		cmp r2, #3
+		movhi r2, #3  @; Si mes de 3 quarts d'hora fixem a 3
+		
+		@; El signe ja esta generat, no cal fer lo del C
+		
+		@; 	Moviment  a les pos adequades
+		mov r0, r0, lsl #TIMEZONE_SIGN_LSB
+		mov r1, r1, lsl #TIMEZONE_HOURS_LSB
+		mov r2, r2, lsl #TIMEZONE_QUARTS_LSB
+		
+		@; Moure tot a r0, on ja hi tenim el signe
+		orr r0, r0, r1
+		orr r0, r0, r2
 
 		@; ==^^^^^^^^== FINAL codi assemblador de la rutina ==^^^^^^^^==
 
