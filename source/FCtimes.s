@@ -185,7 +185,34 @@ create_local_time:
 		
 		@; ==vvvvvvvv== INICI codi assemblador de la rutina ==vvvvvvvv==
 
+		@; Ajustat de valors
+		cmp r0, #23
+		movhi r0, #23  @; Si hores > 23 , hores = 23
+		
+		cmp r1, #59  
+		movhi r1, #59  @; Si minuts > 59, minuts = 59
+		
+		cmp r2, #59
+		movhi r2, #59  @; Si segons > 59, segons = 59
+		
+		@; 	Moviment  a les pos adequades
+		mov r0, r0, lsl #TIME_HOURS_LSB
+		mov r1, r1, lsl #TIME_MINUTES_LSB
+		mov r2, r2, lsl #TIME_SECONDS_LSB
+		mov r3, r3, lsl #TIME_TIMEZONE_LSB
+		
+		@; Limitar bits del fus horari
+		@; fusHorari = ((( fusHorari << TIME_TIMEZONE_LSB ) & TIME_TIMEZONE_MASK ) >> TIME_TIMEZONE_LSB );  --> Desplacem, apliquem mask, desfem desplaçat
+		@; No cal desfer el desplaçat, aixi ja el tenim per a quan construim els valors de retorn
+		and r3, r3, #TIME_TIMEZONE_MASK  @; Apliquem máscara per limitar bits
+		
+		@; Moure tot a r0, on ja hi tenim les hores
+		orr r0, r0, r1  @; minuts
+		orr r0, r0, r2  @; segons
+		orr r0, r0, r3  @; fus horari
 
+		@; No fare lo del 0 del C perque no li veig el sentit, ja que estem dins un or per tant no fa re
+		
 		@; ==^^^^^^^^== FINAL codi assemblador de la rutina ==^^^^^^^^==
 
 		pop {r1-r12, pc}	@; recuperar de pila registres modificats i retornar
@@ -207,7 +234,9 @@ get_hours:
 		push {r1-r12, lr}	@; guardar a pila possibles registres modificats 
 		
 		@; ==vvvvvvvv== INICI codi assemblador de la rutina ==vvvvvvvv==
-
+		
+		and r0, r0, #TIME_HOURS_MASK  @; Apliquem mascara
+		mov r0, r0, lsr #TIME_HOURS_LSB  @; movem bits per a retornar unicament el valor demanat sense 0s pel mig
 
 		@; ==^^^^^^^^== FINAL codi assemblador de la rutina ==^^^^^^^^==
 
@@ -229,6 +258,8 @@ get_minutes:
 		
 		@; ==vvvvvvvv== INICI codi assemblador de la rutina ==vvvvvvvv==
 
+		and r0, r0, #TIME_MINUTES_MASK  @; Apliquem mascara
+		mov r0, r0, lsr #TIME_MINUTES_LSB  @; movem bits per a retornar unicament el valor demanat sense 0s pel mig
 
 		@; ==^^^^^^^^== FINAL codi assemblador de la rutina ==^^^^^^^^==
 
@@ -250,6 +281,8 @@ get_seconds:
 		
 		@; ==vvvvvvvv== INICI codi assemblador de la rutina ==vvvvvvvv==
 
+		and r0, r0, #TIME_SECONDS_MASK  @; Apliquem mascara
+		mov r0, r0, lsr #TIME_SECONDS_LSB  @; movem bits per a retornar unicament el valor demanat sense 0s pel mig
 
 		@; ==^^^^^^^^== FINAL codi assemblador de la rutina ==^^^^^^^^==
 
@@ -271,6 +304,8 @@ get_cents:
 		
 		@; ==vvvvvvvv== INICI codi assemblador de la rutina ==vvvvvvvv==
 
+		and r0, r0, #TIME_CENTSEC_MASK  @; Apliquem mascara
+		mov r0, r0, lsr #TIME_CENTSEC_LSB  @; movem bits per a retornar unicament el valor demanat sense 0s pel mig
 
 		@; ==^^^^^^^^== FINAL codi assemblador de la rutina ==^^^^^^^^==
 
@@ -292,6 +327,8 @@ get_timezone:
 		
 		@; ==vvvvvvvv== INICI codi assemblador de la rutina ==vvvvvvvv==
 
+		and r0, r0, #TIME_TIMEZONE_MASK  @; Apliquem mascara
+		mov r0, r0, lsr #TIME_TIMEZONE_LSB  @; movem bits per a retornar unicament el valor demanat sense 0s pel mig
 
 		@; ==^^^^^^^^== FINAL codi assemblador de la rutina ==^^^^^^^^==
 
