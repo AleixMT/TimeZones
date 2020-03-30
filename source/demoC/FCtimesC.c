@@ -95,15 +95,22 @@ fc_timezone create_timezone ( bool fusPositiu, u8 hores, u8 quartsHora )
 	fc_timezone resultat, signe;
 
 		/* Comprovar rangs: UTC-12:00 ... UTC+14:00 */
-	if ( fusPositiu && hores > 14 ) 
+	
+	if ( fusPositiu)
 	{
-		hores = 14;
-		quartsHora = 0;
+		if (hores > 14)
+		{
+			hores = 14;
+			quartsHora = 0;
+		}
 	}
-	if ( !fusPositiu && hores > 12 ) 
+	else
 	{
-		hores = 12;
-		quartsHora = 0;
+		if (hores > 12)
+		{
+			hores = 12;
+			quartsHora = 0;
+		}
 	}
 	
 	if ( quartsHora > 3 )  

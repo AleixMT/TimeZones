@@ -71,6 +71,7 @@ TIMEZONE_QUARTS_LSB	= 0
 @;      R3: centèsimes de segon (rang vàlid: 0-99)
 @;	Resultat:
 @;		R0: valor fc_time amb els camps inicialitzats segons paràmetres
+@; CHECKED
 		.global create_UTC_time
 create_UTC_time:
 		push {r1-r12, lr}	@; guardar a pila possibles registres modificats 
@@ -98,12 +99,12 @@ create_UTC_time:
 		mov r2, r2, lsl #TIME_SECONDS_LSB
 		mov r3, r3, lsl #TIME_CENTSEC_LSB
 		
-		@; Moure tot a r0, on ja hi tenim les hores
+		@; Acumular tot a r0, on ja hi tenim les hores
 		orr r0, r0, r1  @; minuts
 		orr r0, r0, r2  @; segons
 		orr r0, r0, r3  @; centessimes
 		
-		@; No té sentit fer allodel C amb la zona horario ja que es un 0 i ja 
+		@; No té sentit fer lo del C amb la zona horario ja que es un 0 i ja 
 		@; se suposa que hi ha un 0 implicitament al rebre els registres
 		
 		@; ==^^^^^^^^== FINAL codi assemblador de la rutina ==^^^^^^^^==
@@ -128,10 +129,11 @@ create_timezone:
 		push {r1-r12, lr}	@; guardar a pila possibles registres modificats 
 		
 		@; ==vvvvvvvv== INICI codi assemblador de la rutina ==vvvvvvvv==
-		
+
 		@; Ajustem valors del fus (1 o 0)
 		cmp r0, #0
-		movhi r0, #1  @; Si ens passen fus més de 0 fixem a 1 (ens mengem una ins extra per a quan fus = 1)
+		movhi r0, #0  @; Si ens passen fus més de 0 fixem a 0 (ens mengem una ins extra per a quan fus = 1)
+		moveq r0, #1  @; sino fixem a 1
 		
 		@; Aprofitem cmp anterior per començar aprocessar hores en relacio al fus horari
 		beq .LFusNegatiu
@@ -139,7 +141,8 @@ create_timezone:
 		cmp r1, #14
 		movhi r1, #14  @; Si fus positiu && hores > 14, hores = 14
 		movhi r2, #0  @; Si fus positiu && hores > 14, quarts = 0
-		b .LFinalAjustarFus  @; Sortim d'aqui sino ens mengem el else
+		b .LFinalAjustarFus
+		
 		.LFusNegatiu:
 		cmp r1, #12
 		movhi r1, #12  @; Si fus negatiu && hores > 12, hores = 12
@@ -150,7 +153,10 @@ create_timezone:
 		cmp r2, #3
 		movhi r2, #3  @; Si mes de 3 quarts d'hora fixem a 3
 		
-		@; El signe ja esta generat, no cal fer lo del C
+		@; Generar signe (es pot fer molt mes optim)
+		@;cmp r0, #0
+		@;moveq r0, #1
+		@;movne r0, #0
 		
 		@; 	Moviment  a les pos adequades
 		mov r0, r0, lsl #TIMEZONE_SIGN_LSB
@@ -343,7 +349,7 @@ get_timezone:
 @;  Paràmetres:
 @;      R0: valor fc_timezone
 @;	Resultat:
-@;		R0: 1 si el fus horari indicat és positiu; 0 altrament
+@;		R0: 1 si el fus horari indicat és positiu; 0 altrament  @; kkao
 		.global is_timezone_positive
 is_timezone_positive:
 		push {r1-r12, lr}	@; guardar a pila possibles registres modificats 
@@ -352,6 +358,11 @@ is_timezone_positive:
 
 		and r0, r0, #TIMEZONE_SIGN_MASK  @; Apliquem mascara
 		mov r0, r0, lsr #TIMEZONE_SIGN_LSB  @; movem bits per a retornar unicament el valor demanat sense 0s pel mig
+		
+		@; Neguem bit (es pot fer de forma moltissim mes optima)
+		cmp r0, #0
+		moveq r0, #1
+		movne r0, #0  
 		@; El valor a r0 sera sempre o 1 o 0
 
 		@; ==^^^^^^^^== FINAL codi assemblador de la rutina ==^^^^^^^^==
@@ -397,9 +408,11 @@ get_timezone_minutes:
 		
 		@; ==vvvvvvvv== INICI codi assemblador de la rutina ==vvvvvvvv==
 
-		and r0, r0, #TIMEZONE_MINUTES_MASK  @; Apliquem mascara
-		mov r0, r0, lsr #TIMEZONE_MINUTES_LSB  @; movem bits per a retornar unicament el valor demanat sense 0s pel mig
-		mul r0, r0, #15  @; Multipliquem //RF limitacions a la instruccio mul
+		and r0, r0, #TIMEZONE_QUARTS_MASK  @; Apliquem mascara
+		mov r0, r0, lsr #TIMEZONE_QUARTS_LSB  @; movem bits per a retornar unicament el valor demanat sense 0s pel mig
+		mov r1, #15  @; Carreguem a registre per limitacions de la instrucció mul
+		mul r2, r0, r1  @; Multipliquem amb registre diferent per limitacio amb instruccio mul
+		mov r0, r2  @; retornem valor
 
 		@; ==^^^^^^^^== FINAL codi assemblador de la rutina ==^^^^^^^^==
 
@@ -427,7 +440,7 @@ local_to_UTC_time:
 		push {r1-r12, lr}	@; guardar a pila possibles registres modificats 
 
 		push {r1}		@; guardar @dayOffset
-		
+
 		@; ==vvvvvvvv== INICI codi assemblador de la rutina ==vvvvvvvv==
 		
 		@; Inicialitzem registre r12
@@ -449,11 +462,13 @@ local_to_UTC_time:
 		
 		and r5, r0, #TIMEZONE_QUARTS_MASK  @; Minuts fus
 		mov r5, r5, lsr #TIMEZONE_QUARTS_LSB
-		mul r5, r5, #15  @; obtenim minuts
+		mov r1, #15  @; Carreguem a registre per limitació de la instrucció mul
+		mul r4, r5, r1  @; obtenim minuts a registre temporal per limitacio instruccio mul
+		mov r5, r4  @; recoloquem registre
 		
-		and r4, r0, #TIMEZONE_SIGN_MASK
+		and r4, r0, #TIMEZONE_SIGN_MASK  @; o 0 perque matem tots els bits, o un num raro diferent de 0 (1 no, perque el bit esta a una posicio diferent de la LSB)
 		cmp r4, #0
-		beq .LFusNegatiu
+		bne .LFusNegatiuLocal
 		
 		@; Fus Positiu
 		sub r7, r7, r5  @; Nous minuts
@@ -466,7 +481,7 @@ local_to_UTC_time:
 		movlt r12, #-1  @; Carreguem un -1
 		b .LFusFinal  @; Sortim d'aqui per a no fer el else
 		
-		.LFusNegatiu:   @; ELSE
+		.LFusNegatiuLocal:   @; ELSE
 		add r7, r7, r5  @; Nous minuts
 		add r8, r8, r6  @; Noves hores
 		cmp r7, #59  
