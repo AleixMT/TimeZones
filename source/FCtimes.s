@@ -350,6 +350,9 @@ is_timezone_positive:
 		
 		@; ==vvvvvvvv== INICI codi assemblador de la rutina ==vvvvvvvv==
 
+		and r0, r0, #TIMEZONE_SIGN_MASK  @; Apliquem mascara
+		mov r0, r0, lsr #TIMEZONE_SIGN_LSB  @; movem bits per a retornar unicament el valor demanat sense 0s pel mig
+		@; El valor a r0 sera sempre o 1 o 0
 
 		@; ==^^^^^^^^== FINAL codi assemblador de la rutina ==^^^^^^^^==
 
@@ -371,6 +374,8 @@ get_timezone_hours:
 		
 		@; ==vvvvvvvv== INICI codi assemblador de la rutina ==vvvvvvvv==
 
+		and r0, r0, #TIMEZONE_HOURS_MASK  @; Apliquem mascara
+		mov r0, r0, lsr #TIMEZONE_HOURS_LSB  @; movem bits per a retornar unicament el valor demanat sense 0s pel mig
 
 		@; ==^^^^^^^^== FINAL codi assemblador de la rutina ==^^^^^^^^==
 
@@ -392,6 +397,9 @@ get_timezone_minutes:
 		
 		@; ==vvvvvvvv== INICI codi assemblador de la rutina ==vvvvvvvv==
 
+		and r0, r0, #TIMEZONE_MINUTES_MASK  @; Apliquem mascara
+		mov r0, r0, lsr #TIMEZONE_MINUTES_LSB  @; movem bits per a retornar unicament el valor demanat sense 0s pel mig
+		mul r0, r0, #15  @; Multipliquem //RF limitacions a la instruccio mul
 
 		@; ==^^^^^^^^== FINAL codi assemblador de la rutina ==^^^^^^^^==
 
@@ -419,11 +427,70 @@ local_to_UTC_time:
 		push {r1-r12, lr}	@; guardar a pila possibles registres modificats 
 
 		push {r1}		@; guardar @dayOffset
-
+		
 		@; ==vvvvvvvv== INICI codi assemblador de la rutina ==vvvvvvvv==
 		
+		@; Inicialitzem registre r12
+		mov r12, #0
 		
-			@; IMPORTANT: cal desar a R12 el valor de dayOffset (-1, 0, +1)
+		@; Guardem segons i centessimes a la posicio correcta en un registre temporal
+		and r10, r0, #TIME_SECONDS_MASK
+		and r9, r0, #TIME_CENTSEC_MASK
+		
+		@; Obtenim Operands
+		and r8, r0, #TIME_HOURS_MASK  @; Hora local
+		mov r8, r8, lsr #TIME_HOURS_LSB
+		
+		and r7, r0, #TIME_MINUTES_MASK  @; Minuts Locals
+		mov r7, r7, lsr #TIME_MINUTES_LSB
+		
+		and r6, r0, #TIMEZONE_HOURS_MASK  @; Hores fus
+		mov r6, r6, lsr #TIMEZONE_HOURS_LSB
+		
+		and r5, r0, #TIMEZONE_QUARTS_MASK  @; Minuts fus
+		mov r5, r5, lsr #TIMEZONE_QUARTS_LSB
+		mul r5, r5, #15  @; obtenim minuts
+		
+		and r4, r0, #TIMEZONE_SIGN_MASK
+		cmp r4, #0
+		beq .LFusNegatiu
+		
+		@; Fus Positiu
+		sub r7, r7, r5  @; Nous minuts
+		sub r8, r8, r6  @; Noves hores
+		cmp r7, #0 
+		addlt r7, r7, #60  @; lt perque treballem amb signed
+		sublt r8, r8, #1   @; lt perque treballem amb signed
+		cmp r8, #0
+		addlt r8, r8, #24
+		movlt r12, #-1  @; Carreguem un -1
+		b .LFusFinal  @; Sortim d'aqui per a no fer el else
+		.LFusNegatiu:   @; ELSE
+		add r7, r7, r5  @; Nous minuts
+		add r8, r8, r6  @; Noves hores
+		cmp r7, #59  
+		subhi r7, r7, #60
+		addhi r8, r8, #1
+		cmp r8, #23
+		subhi r8, r8, #24
+		movhi r12, #1  @; Carreguem un 1
+		.LFusFinal:
+		@; r7: minuts
+		@; r8: hores
+		@; r9: centessimes (a la posicio correcta)
+		@; r10: segons  (a la posicio correcta)
+		@; Movem minuts i hores a la posicio que toca
+		mov r7, r7, lsl #TIME_MINUTES_LSB
+		mov r8, r8, lsl #TIME_HOURS_LSB
+		
+		@; Creem valor de retorn acumulant sobre r0
+		mov r0, #0  @; Netegem r0
+		orr r0, r0, r7
+		orr r0, r0, r8
+		orr r0, r0, r9
+		orr r0, r0, r10
+		@; IMPORTANT: cal desar a R12 el valor de dayOffset (-1, 0, +1)
+		
 		@; ==^^^^^^^^== FINAL codi assemblador de la rutina ==^^^^^^^^==
 
 		pop {r11}			@; recuperar adreça de dayOffset

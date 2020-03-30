@@ -105,7 +105,8 @@ fc_timezone create_timezone ( bool fusPositiu, u8 hores, u8 quartsHora )
 		hores = 12;
 		quartsHora = 0;
 	}
-	if ( quartsHora > 3 ) 
+	
+	if ( quartsHora > 3 )  
 		quartsHora = 3;
 
 	/* Generar signe: 0 positiu, 1 negatiu */
