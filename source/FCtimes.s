@@ -465,6 +465,7 @@ local_to_UTC_time:
 		addlt r8, r8, #24
 		movlt r12, #-1  @; Carreguem un -1
 		b .LFusFinal  @; Sortim d'aqui per a no fer el else
+		
 		.LFusNegatiu:   @; ELSE
 		add r7, r7, r5  @; Nous minuts
 		add r8, r8, r6  @; Noves hores
@@ -474,6 +475,7 @@ local_to_UTC_time:
 		cmp r8, #23
 		subhi r8, r8, #24
 		movhi r12, #1  @; Carreguem un 1
+		
 		.LFusFinal:
 		@; r7: minuts
 		@; r8: hores
